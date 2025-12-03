@@ -7,6 +7,7 @@ export const sequelize = new Sequelize(
   {
     host: "ARTHUR\\SQLEXPRESS",
     dialect: "mssql",
+    logging: false,
   }
 );
 

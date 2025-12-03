@@ -8,7 +8,12 @@ import {
   OnDisconnect,
   OnNewConnection,
 } from "@Controllers/ConnectionsManagerController.js";
-import { SendMessage } from "@Controllers/MessageManagerController.js";
+import {
+  GetMessagesById,
+  SendMessage,
+} from "@Controllers/MessageManagerController.js";
+import Logger from "Middleware/Logger.js";
+import cors from "cors";
 
 const app = express();
 const server = createServer(app);
@@ -19,25 +24,34 @@ const io = new Server(server, {
   },
 });
 
+app.use(cors());
+app.use(Logger);
+
 //Server health endpoint
 app.get("/", (req: Request, res: Response) => {
   res.send("Server is live");
 });
 
+app.get("/api/getMessages", async (req: Request, res: Response) => {
+  const array = await GetMessagesById(
+    req.query.senderId!.toString(),
+    req.query.addresserId!.toString()
+  );
+  console.log(`return ${array}`);
+  res.json(array);
+});
+
 //WSS logic
 io.on("connection", (socket) => {
-  console.log("New connection. ID: " + socket.id);
   OnNewConnection(socket.id);
-
-  //Client requested user list
-  socket.on("getUsers", () => {
-    io.emit("getUsersResponce", GetActiveConnections());
-  });
+  console.log("New connection. ID: " + socket.id);
+  io.emit("getUsersResponce", GetActiveConnections());
 
   socket.on("sendMessage", (from: string, to: string, messageText: string) => {
-    console.log(from, to, messageText);
+    console.log(
+      `Transfering message\nFrom: ${from}\nTo: ${to}\nText: ${messageText}`
+    );
     SendMessage(from, to, messageText);
-
     io.to(to).emit("recieveMessage", from, to, messageText);
   });
 

@@ -14,6 +14,11 @@ import {
 } from "@Controllers/MessageManagerController.js";
 import Logger from "Middleware/Logger.js";
 import cors from "cors";
+import {
+  RegisterUser,
+  LoginUser,
+  CheckJWT,
+} from "@Controllers/UsersController.js";
 
 const app = express();
 const server = createServer(app);
@@ -30,6 +35,62 @@ app.use(Logger);
 //Server health endpoint
 app.get("/", (req: Request, res: Response) => {
   res.send("Server is live");
+});
+
+app.post("/api/register", async (req: Request, res: Response) => {
+  try {
+    const newUser = await RegisterUser(
+      req.body.username,
+      req.body.login,
+      req.body.password
+    );
+    if (!newUser) {
+      res.status(422).json({ success: false, message: "User already exists" });
+      return;
+    }
+    res.status(201).json({ success: true, newUser });
+  } catch (ex) {
+    res.status(422).json({ success: false, message: ex });
+  }
+});
+
+app.post("/api/login", async (req: Request, res: Response) => {
+  const result = await LoginUser(req.body.login, req.body.password);
+  if (result) {
+    const { foundUser, accessToken } = result;
+    res
+      .status(200)
+      .cookie("accessToken", accessToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+      })
+      .send();
+  } else {
+    res.status(401).json({ message: "Credentials invalid" });
+    return;
+  }
+});
+
+app.get("/api/checkjwt", async (req: Request, res: Response) => {
+  const userToken = req.cookies.accessToken;
+  if (userToken) {
+    const result = await CheckJWT(userToken);
+    if (result) {
+      res.status(200).json({ success: true, personality: result });
+      return;
+    }
+  }
+  res.status(401).json({ success: false, message: "Invalid JWT" });
+});
+
+app.get("/api/getMessages", async (req: Request, res: Response) => {
+  const array = await GetMessagesById(
+    req.query.senderId!.toString(),
+    req.query.addresserId!.toString()
+  );
+  console.log(`return ${array}`);
+  res.json(array);
 });
 
 app.get("/api/getMessages", async (req: Request, res: Response) => {
